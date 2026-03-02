@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      // reset dropdown options
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -25,6 +27,17 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <strong>Participants:</strong>
+            <ul class="participant-list">
+              ${details.participants.map(p => `
+                <li data-email="${p}">
+                  <span class="participant-name">${p}</span>
+                  <span class="delete-icon" title="Remove">&times;</span>
+                </li>
+              `).join("")}
+            </ul>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // update list immediately
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -73,11 +88,46 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => {
         messageDiv.classList.add("hidden");
       }, 5000);
+
+      // refresh list to update participants
+      fetchActivities();
     } catch (error) {
       messageDiv.textContent = "Failed to sign up. Please try again.";
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+  });
+
+  // Handle participant deletion
+  activitiesList.addEventListener("click", async (event) => {
+    if (event.target.classList.contains("delete-icon")) {
+      const li = event.target.closest("li");
+      const email = li.dataset.email;
+      const activityName = li.closest(".activity-card").querySelector("h4").textContent;
+
+      try {
+        const response = await fetch(
+          `/activities/${encodeURIComponent(activityName)}/participants?email=${encodeURIComponent(email)}`,
+          { method: "DELETE" }
+        );
+        const result = await response.json();
+        if (response.ok) {
+          messageDiv.textContent = result.message;
+          messageDiv.className = "success";
+          fetchActivities();
+        } else {
+          messageDiv.textContent = result.detail || "Error removing participant";
+          messageDiv.className = "error";
+        }
+        messageDiv.classList.remove("hidden");
+        setTimeout(() => messageDiv.classList.add("hidden"), 5000);
+      } catch (err) {
+        messageDiv.textContent = "Failed to remove participant.";
+        messageDiv.className = "error";
+        messageDiv.classList.remove("hidden");
+        console.error(err);
+      }
     }
   });
 
